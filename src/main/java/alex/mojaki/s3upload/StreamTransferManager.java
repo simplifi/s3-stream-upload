@@ -358,9 +358,12 @@ public class StreamTransferManager {
      * by {@link StreamTransferManager#getMultiPartOutputStreams()} to finish, then sends a request to S3 to complete
      * the upload. For the former to complete, it's essential that every stream is closed, otherwise the upload
      * threads will block forever waiting for more data.
+     *
+     * @return The eTag of the uploaded object.
      */
-    public void complete() {
+    public String complete() {
         try {
+            String eTag = "";
             log.debug("{}: Waiting for pool termination", this);
             executorServiceResultsHandler.awaitCompletion();
             log.debug("{}: Pool terminated", this);
@@ -380,7 +383,8 @@ public class StreamTransferManager {
                         .contentLength(0L)
                         .applyMutation(this::customisePutEmptyObjectRequest)
                         .build();
-                s3Client.putObject(request, RequestBody.empty());
+                eTag = s3Client.putObject(request, RequestBody.empty()).eTag();
+                eTag = eTag.substring(1, eTag.length() - 1); // Strip off double quotes
             } else {
                 List<CompletedPart> sortedParts = new ArrayList<CompletedPart>(partETags);
                 Collections.sort(sortedParts, new PartNumberComparator());
@@ -391,12 +395,14 @@ public class StreamTransferManager {
                         .multipartUpload(b -> b.parts(sortedParts))
                         .applyMutation(this::customiseCompleteRequest)
                         .build();
-                CompleteMultipartUploadResponse completeMultipartUploadResult = s3Client.completeMultipartUpload(completeRequest);
+                eTag = s3Client.completeMultipartUpload(completeRequest).eTag();
+                eTag = eTag.substring(1, eTag.length() - 1); // Strip off double quotes
                 if (checkIntegrity) {
-                    checkCompleteFileIntegrity(completeMultipartUploadResult.eTag(), sortedParts);
+                    checkCompleteFileIntegrity(eTag, sortedParts);
                 }
             }
             log.info("{}: Completed", this);
+            return eTag;
         } catch (IntegrityCheckException e) {
             // Nothing to abort. Upload has already finished.
             throw e;
@@ -420,7 +426,9 @@ public class StreamTransferManager {
         // "-" and the number of parts.
         MessageDigest md = Utils.md5();
         for (CompletedPart partETag : parts) {
-            md.update(BinaryUtils.fromHex(partETag.eTag()));
+            String eTag = partETag.eTag();
+            eTag = eTag.substring(1, eTag.length() - 1); // Strip off double quotes
+            md.update(BinaryUtils.fromHex(eTag));
         }
         // Represent byte array as a 32-digit number hexadecimal format followed by "-<partCount>".
         return String.format("%032x-%d", new BigInteger(1, md.digest()), parts.size());
