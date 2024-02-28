@@ -477,7 +477,7 @@ public class StreamTransferManager {
         if (uploadId != null) {
             log.debug("{}: Aborting", this);
             AbortMultipartUploadRequest abortMultipartUploadRequest = AbortMultipartUploadRequest.builder()
-                    .bucket(bucketName).key(putKey).uploadId(uploadId).build();
+                    .bucket(bucketName).key(putKey).uploadId(uploadId).applyMutation(this::customiseAbortRequest).build();
             s3Client.abortMultipartUpload(abortMultipartUploadRequest);
             log.info("{}: Aborted", this);
         }
@@ -597,6 +597,10 @@ public class StreamTransferManager {
 
     @SuppressWarnings("unused")
     public void customisePutEmptyObjectRequest(PutObjectRequest.Builder requestBuilder) {
+    }
+
+    @SuppressWarnings("unused")
+    public void customiseAbortRequest(AbortMultipartUploadRequest.Builder requestBuilder) {
     }
 
     private static class PartNumberComparator implements Comparator<CompletedPart> {
