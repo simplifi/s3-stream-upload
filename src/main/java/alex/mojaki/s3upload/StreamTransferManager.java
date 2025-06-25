@@ -383,8 +383,8 @@ public class StreamTransferManager {
                         .contentLength(0L)
                         .applyMutation(this::customisePutEmptyObjectRequest)
                         .build();
-                eTag = s3Client.putObject(request, RequestBody.empty()).eTag();
-                eTag = eTag.substring(1, eTag.length() - 1); // Strip off double quotes
+                PutObjectResponse response = s3Client.putObject(request, RequestBody.empty());
+                eTag = (response == null ? "" : response.eTag().substring(1, eTag.length() - 1)); // Strip off double quotes
             } else {
                 List<CompletedPart> sortedParts = new ArrayList<CompletedPart>(partETags);
                 Collections.sort(sortedParts, new PartNumberComparator());

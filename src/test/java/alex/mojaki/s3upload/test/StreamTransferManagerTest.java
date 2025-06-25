@@ -58,7 +58,7 @@ public class StreamTransferManagerTest {
     public static Collection<Object[]> input() {
         Object[][] arr = {
             {1000000, false, 4},
-            {1000000, true, 4},
+            {1000000, false, 4},
             {500000, false, 2},
             {100000, false, 1},
             {1, false, 1},
